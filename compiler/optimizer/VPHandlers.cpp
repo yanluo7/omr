@@ -1775,14 +1775,14 @@ TR::Node *constrainAload(OMR::ValuePropagation *vp, TR::Node *node)
          if (sig)
             {
             TR_OpaqueClassBlock *classBlock = vp->fe()->getClassFromSignature(sig, len, symRef->getOwningMethod(vp->comp()));
-
+            printf("NOP 1 method %s sig %s classBlock %p\n", vp->comp()->signature(), sig, calssBlock);
             if (  classBlock
                && TR::Compiler->cls.isInterfaceClass(vp->comp(), classBlock)
                && !vp->comp()->getOption(TR_TrustAllInterfaceTypeInfo))
                {
                classBlock = NULL;
                }
-
+            printf("NOP 2 classBlock %p\n", calssBlock);
             if (classBlock)
                {
                TR_OpaqueClassBlock *jlClass = vp->fe()->getClassClassPointer(classBlock);
