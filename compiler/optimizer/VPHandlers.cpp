@@ -1811,6 +1811,7 @@ TR::Node *constrainAload(OMR::ValuePropagation *vp, TR::Node *node)
                }
             else
                {
+	       printf("NOP 3 method %s sig %s classBlock %p\n", vp->comp()->signature(), sig, classBlock);
                TR_ResolvedMethod *method = node->getSymbolReference()->getOwningMethod(vp->comp());
                constraint = TR::VPUnresolvedClass::create(vp, sig, len, method);
                vp->addBlockConstraint(node, constraint);
