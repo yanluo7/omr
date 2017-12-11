@@ -9417,6 +9417,7 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
       if ((second->getOpCodeValue() == TR::aconst) &&
           (second->getAddress() == 0))
          {
+         printf("NOP 4 method %s\n", vp->comp()->signature());
          const char *clazzToBeInitialized = NULL;
          int32_t clazzNameLen = -1;
          bool isGlobal;
@@ -9451,6 +9452,7 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
                   TR::VPUnresolvedClass *unresolvedTypeConstraint = typeConstraint->asUnresolvedClass();
                   if (unresolvedTypeConstraint)
                      {
+		     printf("NOP 5 method %s\n", vp->comp()->signature());
                      int32_t len;
                      const char *sig = unresolvedTypeConstraint->getClassSignature(len);
                      TR_ResolvedMethod *owningMethod = unresolvedTypeConstraint->getOwningMethod();
@@ -9487,6 +9489,7 @@ static TR::Node *constrainIfcmpeqne(OMR::ValuePropagation *vp, TR::Node *node, b
                     ((clazzNameLen == 40) && !strncmp(clazzToBeInitialized, "Ljava/lang/String$StringCompressionFlag;", clazzNameLen))) &&
                    performTransformation(vp->comp(), "%sUsing side-effect guard to fold away condition on a load from an uninitializec class  %s [%p]\n", OPT_DETAILS, clazzToBeInitialized, node))
                   {
+		  printf("NOP 6 method %s clazzToBeInitialized %s\n", vp->comp()->signature(), clazzToBeInitialized);
                   char *clazzToBeInitializedCopy = (char *)vp->trMemory()->allocateMemory(clazzNameLen+1, heapAlloc);
                   strcpy(clazzToBeInitializedCopy, clazzToBeInitialized);
                   vp->_classesToCheckInit.add(new (vp->trStackMemory()) OMR::ValuePropagation::ClassInitInfo(vp, clazzToBeInitializedCopy, clazzNameLen));
