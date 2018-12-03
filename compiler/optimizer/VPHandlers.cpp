@@ -5762,7 +5762,9 @@ TR::Node *constrainAcall(OMR::ValuePropagation *vp, TR::Node *node)
       if (!node->getOpCode().isIndirect())
          {
          static char *enableDynamicObjectClone = feGetEnv("TR_enableDynamicObjectClone");
-         if (method->getRecognizedMethod() == TR::java_lang_Object_clone
+         //YAN
+         static char *enableDynamicArrayClone = feGetEnv("TR_enableDynamicArrayClone");
+	 if (method->getRecognizedMethod() == TR::java_lang_Object_clone
              || method->getRecognizedMethod() == TR::java_lang_J9VMInternals_primitiveClone)
             {
             bool isGlobal;
@@ -5802,22 +5804,45 @@ TR::Node *constrainAcall(OMR::ValuePropagation *vp, TR::Node *node)
                               && !vp->_arrayCloneCalls.find(vp->_curTree))
                         {
                         vp->_arrayCloneCalls.add(vp->_curTree);
-                        vp->_arrayCloneTypes.add(constraint->getClass());
+                        //YAN
+                        vp->_arrayCloneTypes.add(new (vp->trStackMemory()) OMR::ValuePropagation::ArrayCloneInfo(constraint->getClass(), true));
                         }
                      }
                   }
+//YAN
+#ifdef J9VM_INTERP_FLAGS_IN_CLASS_SLOT
                else if ( constraint->getClassType()
                          && constraint->getClassType()->asResolvedClass() )
                   {
                   newTypeConstraint = TR::VPResolvedClass::create(vp, constraint->getClass());
-                  if (enableDynamicObjectClone
-                      && constraint->getClassType()->isArray() == TR_no
-                      && !vp->_objectCloneCalls.find(vp->_curTree))
+                  if (vp->trace())
+                     traceMsg(vp->comp(), "Object Clone: Resolved Class of node %p \n", node);
+                  //YAN
+                  if ((true || !vp->comp()->compileRelocatableCode()) && !TR::Options::getCmdLineOptions()->realTimeGC())
                      {
-                     vp->_objectCloneCalls.add(vp->_curTree);
-                     vp->_objectCloneTypes.add(new (vp->trStackMemory()) OMR::ValuePropagation::ObjCloneInfo(constraint->getClass(), false));
+                     if (enableDynamicObjectClone
+                         && constraint->getClassType()->isArray() == TR_no
+                         && !vp->_objectCloneCalls.find(vp->_curTree))
+                        {
+                        if (vp->trace())
+                           traceMsg(vp->comp(), "Object Clone: Resolved Class of node %p object clone\n", node);
+                        vp->_objectCloneCalls.add(vp->_curTree);
+                        vp->_objectCloneTypes.add(new (vp->trStackMemory()) OMR::ValuePropagation::ObjCloneInfo(constraint->getClass(), false));
+                        }
+                     //YAN
+                     else if (enableDynamicArrayClone
+                         && constraint->getClassType()->isArray() == TR_yes
+                         && !vp->_arrayCloneCalls.find(vp->_curTree)
+                         && !vp->comp()->generateArraylets())
+                        {
+                        if (vp->trace())
+                           traceMsg(vp->comp(), "Object Clone: Resolved Class of node %p array clone\n", node);
+                        vp->_arrayCloneCalls.add(vp->_curTree);
+                        vp->_arrayCloneTypes.add(new (vp->trStackMemory()) OMR::ValuePropagation::ArrayCloneInfo(constraint->getClass(), false));;
+                        }
                      }
                   }
+#endif	       
                }
 
             if (!constraint || (!constraint->isFixedClass()

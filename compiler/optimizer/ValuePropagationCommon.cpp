@@ -3530,7 +3530,8 @@ void OMR::ValuePropagation::transformObjectCloneCall(TR::TreeTop *callTree, OMR:
    return;
    }
 
-void OMR::ValuePropagation::transformArrayCloneCall(TR::TreeTop *callTree, TR_OpaqueClassBlock *j9arrayClass)
+//YAN
+void OMR::ValuePropagation::transformArrayCloneCall(TR::TreeTop *callTree, OMR::ValuePropagation::ArrayCloneInfo *cloneInfo)
    {
    static char *disableArrayCloneOpt = feGetEnv("TR_disableFastArrayClone");
    if (disableArrayCloneOpt || TR::Compiler->om.canGenerateArraylets())
@@ -3548,11 +3549,22 @@ void OMR::ValuePropagation::transformArrayCloneCall(TR::TreeTop *callTree, TR_Op
    if (!performTransformation(comp(), "%sInlining array clone call [%p] as new array and arraycopy\n", OPT_DETAILS, callNode))
       return;
 
+   //YAN
+   TR_OpaqueClassBlock *j9arrayClass = cloneInfo->_clazz;
+   bool isFixedClass = cloneInfo->_isFixed;
+
    TR_OpaqueClassBlock *j9class = comp()->fe()->getComponentClassFromArrayClass(j9arrayClass);
 
    TR::DebugCounter::prependDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "inlineClone.location/array/(%s)", comp()->signature()), callTree);
    int32_t classNameLength;
    char *className = TR::Compiler->cls.classNameChars(comp(), j9arrayClass, classNameLength);
+   //YAN
+   if (TR::Compiler->cls.isPrimitiveClass(comp(), j9class))
+      {
+      if (!isFixedClass)
+         printf("YAN BAD Primitive array not fixed constraint\n");
+      TR_ASSERT_FATAL(isFixedClass, "Primitive array should be of fixed constraint");
+      }   
    TR::DebugCounter::prependDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "inlineClone.type/(%s)/(%s)/%s", className, comp()->signature(), comp()->getHotnessName(comp()->getMethodHotness())), callTree);
    TR::Node *lenNode = TR::Node::create(callNode, TR::arraylength, 1, objNode);
     // Preserve children for callNode
@@ -3587,9 +3599,22 @@ void OMR::ValuePropagation::transformArrayCloneCall(TR::TreeTop *callTree, TR_Op
       }
    else
       {
-      TR::Node *loadaddr = TR::Node::createWithSymRef(callNode, TR::loadaddr, 0, comp()->getSymRefTab()->findOrCreateClassSymbol(callNode->getSymbolReference()->getOwningMethodSymbol(comp()), 0, j9class));
+      //YAN
+      TR::Node *classNode;
+      if (isFixedClass)
+         {
+         classNode = TR::Node::createWithSymRef(callNode, TR::loadaddr, 0, comp()->getSymRefTab()->findOrCreateClassSymbol(callNode->getSymbolReference()->getOwningMethodSymbol(comp()), 0, j9class));
+         }
+      else
+         {
+         // Load the component class of the cloned array as 2nd child of anewarray as expected.
+         TR::Node * arrayClassNode = TR::Node::createWithSymRef(callNode, TR::aloadi, 1, objNode, comp()->getSymRefTab()->findOrCreateVftSymbolRef());
+         classNode = TR::Node::createWithSymRef(callNode, TR::aloadi, 1, arrayClassNode, comp()->getSymRefTab()->findOrCreateArrayComponentTypeSymbolRef());
+         }
       TR::SymbolReference *symRef = comp()->getSymRefTab()->findOrCreateANewArraySymbolRef(objNode->getSymbolReference()->getOwningMethodSymbol(comp()));
-      TR::Node::recreateWithoutProperties(callNode, TR::anewarray, 2, lenNode, loadaddr, symRef);
+      TR::Node::recreateWithoutProperties(callNode, TR::anewarray, 2, lenNode, classNode, symRef);
+      //YAN
+      callNode->setCanSkipZeroInitialization(true);
       }
    TR::Node *newArray = callNode;
    newArray->setIsNonNull(true);
