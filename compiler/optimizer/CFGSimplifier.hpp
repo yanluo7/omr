@@ -52,8 +52,16 @@ class TR_CFGSimplifier : public TR::Optimization
    private :
 
    bool simplify();
-   bool simplifyBooleanStore();
+   bool simplifyIfStructure();
+   bool simplifyBooleanStore(bool needToDuplicateTree);
+   bool simplifyResolvedRequireNonNull(bool needToDuplicateTree);
+   bool simplifyUnresolvedRequireNonNull(bool needToDuplicateTree);
+   bool simplifyNullToException(bool needToDuplicateTree);
+   bool simplifyArraylenCompareToException(bool needToDuplicateTree);
    bool simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::Node *branchNode, TR::Node *store1Node, TR::Node *store2Node);
+   bool simplifySimpleStore(bool needToDuplicateTree);
+   bool simplifyCondStoreSequence(bool needToDuplicateTree);
+   bool simplifyInstanceOfTestToCheckcast(bool needToDuplicateTree);
    TR::TreeTop *getNextRealTreetop(TR::TreeTop *treeTop);
    TR::TreeTop *getLastRealTreetop(TR::Block *block);
    TR::Block   *getFallThroughBlock(TR::Block *block);

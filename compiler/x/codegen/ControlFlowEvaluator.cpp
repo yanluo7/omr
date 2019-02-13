@@ -1298,11 +1298,13 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
    TR::Register *falseReg = cg->evaluate(falseVal);
    bool trueValIs64Bit = TR::TreeEvaluator::getNodeIs64Bit(trueVal, cg);
    TR::Register *trueReg  = TR::TreeEvaluator::intOrLongClobberEvaluate(trueVal, trueValIs64Bit, cg);
+   if (falseReg->containsCollectedReference())
+      trueReg->setContainsCollectedReference();
 
    // don't need to test if we're already using a compare eq or compare ne
    auto conditionOp = condition->getOpCode();
    //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::icmpne) || (conditionOp == TR::lcmpeq) || (conditionOp == TR::lcmpne))
-   if (conditionOp.isCompareForEquality())
+   if (conditionOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
       {
       TR::TreeEvaluator::compareIntegersForEquality(condition, cg);
       //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::lcmpeq))
@@ -1310,6 +1312,24 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
          generateRegRegInstruction(CMOVNERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
       else
          generateRegRegInstruction(CMOVERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+      }
+   else if (conditionOp.isCompareForOrder() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
+      {
+      TR::TreeEvaluator::compareIntegersForOrder(condition, cg);
+      if (conditionOp.isCompareTrueIfEqual())
+         {
+         if (conditionOp.isCompareTrueIfGreater())
+            generateRegRegInstruction(CMOVLRegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         else
+            generateRegRegInstruction(CMOVGRegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         }
+      else
+         {
+         if (conditionOp.isCompareTrueIfGreater())
+            generateRegRegInstruction(CMOVLERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         else
+            generateRegRegInstruction(CMOVGERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
+         }
       }
    else
       {
