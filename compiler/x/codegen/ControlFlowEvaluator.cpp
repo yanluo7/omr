@@ -1305,8 +1305,11 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
 
    // don't need to test if we're already using a compare eq or compare ne
    auto conditionOp = condition->getOpCode();
+   bool longCompareOn32bit = (conditionOp.isBooleanCompare() &&
+         (condition->getFirstChild()->getOpCode().isLong() || condition->getSecondChild()->getOpCode().isLong())
+         && (!TR::Compiler->target.is64Bit()));
    //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::icmpne) || (conditionOp == TR::lcmpeq) || (conditionOp == TR::lcmpne))
-   if (conditionOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
+   if (conditionOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress() && !longCompareOn32bit)
       {
       TR::TreeEvaluator::compareIntegersForEquality(condition, cg);
       //if ((conditionOp == TR::icmpeq) || (conditionOp == TR::lcmpeq))
@@ -1315,7 +1318,7 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
       else
          generateRegRegInstruction(CMOVERegReg(trueValIs64Bit), node, trueReg, falseReg, cg);
       }
-   else if (conditionOp.isCompareForOrder() && condition->getFirstChild()->getOpCode().isIntegerOrAddress())
+   else if (conditionOp.isCompareForOrder() && condition->getFirstChild()->getOpCode().isIntegerOrAddress() && !longCompareOn32bit)
       {
       TR::TreeEvaluator::compareIntegersForOrder(condition, cg);
       if (conditionOp.isCompareTrueIfEqual())

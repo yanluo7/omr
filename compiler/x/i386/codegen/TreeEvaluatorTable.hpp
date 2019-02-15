@@ -413,7 +413,7 @@
    TR::TreeEvaluator::lternaryEvaluator,                               // TR::lternary
    TR::TreeEvaluator::badILOpEvaluator,                                // TR::bternary
    TR::TreeEvaluator::badILOpEvaluator,                                // TR::sternary
-   TR::TreeEvaluator::badILOpEvaluator,                                // TR::aternary
+   TR::TreeEvaluator::iternaryEvaluator,                               // TR::aternary
    TR::TreeEvaluator::badILOpEvaluator,                                // TR::fternary
    TR::TreeEvaluator::badILOpEvaluator,                                // TR::dternary
    TR::TreeEvaluator::treetopEvaluator,                                // TR::treetop

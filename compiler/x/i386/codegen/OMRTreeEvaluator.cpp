@@ -3620,11 +3620,13 @@ TR::Register *OMR::X86::I386::TreeEvaluator::lternaryEvaluator(TR::Node *node, T
    TR::Register *falseReg = cg->evaluate(falseVal);
    TR::Register *trueReg  = cg->longClobberEvaluate(trueVal);
 
-   TR::ILOpCodes condOp = condition->getOpCodeValue();
-   if((condOp == TR::icmpeq) || (condOp == TR::icmpne))
+   auto condOp = condition->getOpCode();
+   bool longCompare = (condition->getOpCode().isBooleanCompare() &&
+         (condition->getFirstChild()->getOpCode().isLong() || condition->getSecondChild()->getOpCode().isLong()));
+   if(condOp.isCompareForEquality() && condition->getFirstChild()->getOpCode().isIntegerOrAddress() && !longCompare)
       {
       compareIntegersForEquality(condition, cg);
-      if(condOp == TR::icmpeq)
+      if(condOp.isCompareTrueIfEqual())
          {
          generateRegRegInstruction(CMOVNE4RegReg, node,
                                    trueReg-> getRegisterPair()->getLowOrder(),
@@ -3642,6 +3644,36 @@ TR::Register *OMR::X86::I386::TreeEvaluator::lternaryEvaluator(TR::Node *node, T
                                    trueReg-> getRegisterPair()->getHighOrder(),
                                    falseReg->getRegisterPair()->getHighOrder(), cg);
          }
+      }
+   else if (condOp.isCompareForOrder() && condition->getFirstChild()->getOpCode().isIntegerOrAddress() && !longCompare)
+      {
+      compareIntegersForOrder(condition, cg);
+      if (condOp.isCompareTrueIfEqual())
+         {
+         if (condOp.isCompareTrueIfGreater())
+            {
+            generateRegRegInstruction(CMOVL4RegReg, node, trueReg->getRegisterPair()->getLowOrder(), falseReg->getRegisterPair()->getLowOrder(), cg);
+            generateRegRegInstruction(CMOVL4RegReg, node, trueReg->getRegisterPair()->getHighOrder(), falseReg->getRegisterPair()->getHighOrder(), cg);
+            }
+         else
+            {
+            generateRegRegInstruction(CMOVG4RegReg, node, trueReg->getRegisterPair()->getLowOrder(), falseReg->getRegisterPair()->getLowOrder(), cg);
+            generateRegRegInstruction(CMOVG4RegReg, node, trueReg->getRegisterPair()->getHighOrder(), falseReg->getRegisterPair()->getHighOrder(), cg);
+            }
+         }
+      else
+         {
+         if (condOp.isCompareTrueIfGreater())
+            {
+            generateRegRegInstruction(CMOVLE4RegReg, node, trueReg->getRegisterPair()->getLowOrder(), falseReg->getRegisterPair()->getLowOrder(), cg);
+            generateRegRegInstruction(CMOVLE4RegReg, node, trueReg->getRegisterPair()->getHighOrder(), falseReg->getRegisterPair()->getHighOrder(), cg);
+            }
+         else
+            {
+            generateRegRegInstruction(CMOVGE4RegReg, node, trueReg->getRegisterPair()->getLowOrder(), falseReg->getRegisterPair()->getLowOrder(), cg);
+            generateRegRegInstruction(CMOVGE4RegReg, node, trueReg->getRegisterPair()->getHighOrder(), falseReg->getRegisterPair()->getHighOrder(), cg);
+            }
+         }      
       }
    else
       {
