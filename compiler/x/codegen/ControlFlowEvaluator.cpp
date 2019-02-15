@@ -1298,8 +1298,10 @@ TR::Register *OMR::X86::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::Cod
    TR::Register *falseReg = cg->evaluate(falseVal);
    bool trueValIs64Bit = TR::TreeEvaluator::getNodeIs64Bit(trueVal, cg);
    TR::Register *trueReg  = TR::TreeEvaluator::intOrLongClobberEvaluate(trueVal, trueValIs64Bit, cg);
-   if (falseReg->containsCollectedReference())
+   if (!node->isNotCollected()) //falseReg->containsCollectedReference()
+      {
       trueReg->setContainsCollectedReference();
+      }
 
    // don't need to test if we're already using a compare eq or compare ne
    auto conditionOp = condition->getOpCode();
