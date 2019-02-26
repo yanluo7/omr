@@ -1820,28 +1820,32 @@ class PPCControlFlowInstruction : public TR::Instruction
    TR::InstOpCode _opCode2;
    TR::InstOpCode _opCode3;
    TR::InstOpCode _cmpOp;
+   bool _useRegPair;
 
    public:
 
    PPCControlFlowInstruction(TR::InstOpCode::Mnemonic  op, TR::Node * n,
       TR::CodeGenerator *codeGen,
-      TR::RegisterDependencyConditions *deps=NULL)
+      TR::RegisterDependencyConditions *deps=NULL,
+      bool useRegPair=false)
       : TR::Instruction(op, n, codeGen), _numSources(0), _numTargets(0), _label(NULL),
-        _opCode2(TR::InstOpCode::bad), _conditions(deps)
+        _opCode2(TR::InstOpCode::bad), _conditions(deps), _useRegPair(useRegPair)
       {
       if (deps!=NULL) deps->bookKeepingRegisterUses(this, codeGen);
       }
    PPCControlFlowInstruction(TR::InstOpCode::Mnemonic  op, TR::Node * n,
       TR::Instruction *preceedingInstruction,
       TR::CodeGenerator *codeGen,
-      TR::RegisterDependencyConditions *deps=NULL)
+      TR::RegisterDependencyConditions *deps=NULL,
+      bool useRegPair=false)
       : TR::Instruction(op, n, preceedingInstruction, codeGen),
         _numSources(0), _numTargets(0), _label(NULL), _opCode2(TR::InstOpCode::bad),
-        _conditions(deps)
+        _conditions(deps), _useRegPair(useRegPair)
       {
       if (deps!=NULL) deps->bookKeepingRegisterUses(this, codeGen);
       }
 
+   bool useRegPair() { return _useRegPair; }
    virtual Kind getKind() { return IsControlFlow; }
 
    int32_t getNumSources()                    {return _numSources;}
