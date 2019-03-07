@@ -181,7 +181,6 @@ bool TR_CFGSimplifier::simplifyIfStructure()
           || simplifyResolvedRequireNonNull(needToDuplicateTree)
           || simplifyUnresolvedRequireNonNull(needToDuplicateTree)
           || simplifyNullToException(needToDuplicateTree)
-          //|| simplifyArraylenCompareToException(needToDuplicateTree)
           || simplifySimpleStore(needToDuplicateTree)
           || simplifyCondStoreSequence(needToDuplicateTree)
           || simplifyInstanceOfTestToCheckcast(needToDuplicateTree)
@@ -208,8 +207,14 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
    if (disableSimplifyInstanceOfTestToCheckcast != NULL)
       return false;
 
+   if (comp()->getOSRMode() == TR::involuntaryOSR)
+         return false;
+
    if (_block->isCatchBlock())
       return false;
+
+   if (trace())
+      traceMsg(comp(), "Start simplifyInstanceOfTestToCheckcast block_%d\n", _block->getNumber());
 
    // This block must end in an ifacmpeq or ifacmpne against aconst NULL
    TR::TreeTop *compareTreeTop = getLastRealTreetop(_block);
@@ -219,23 +224,26 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ificmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ificmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
 
    if (compareNode->getSecondChild()->getOpCodeValue() != TR::iconst
        || compareNode->getSecondChild()->getInt() != 0)
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ificmp[eq/ne] against zero n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ificmp[eq/ne] against zero n%dn\n", compareNode->getGlobalIndex());
 
    if (compareNode->getFirstChild()->getOpCodeValue() != TR::instanceof)
       return false;
+
+   if (trace())
+      traceMsg(comp(), "   Found an ificmp[eq/ne] of an instanceof against 0 n%dn\n", compareNode->getGlobalIndex());
 
    if (compareNode->getFirstChild()->getSecondChild()->getOpCodeValue() != TR::loadaddr)
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ificmp[eq/new] of an instanceof a constant class against zero n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ificmp[eq/new] of an instanceof a constant class against zero n%dn\n", compareNode->getGlobalIndex());
 
    TR::Block *throwBlock = NULL, *fallthroughBlock = NULL;
    if (compareNode->getOpCodeValue() == TR::ificmpeq)
@@ -245,7 +253,7 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
          return false;
 
       if (trace())
-         traceMsg(comp(), "Found an ificmpeq of an instanceof against zero which throws on taken size\n");
+         traceMsg(comp(), "   Found an ificmpeq of an instanceof against zero which throws on taken size\n");
       throwBlock = _next2;
       fallthroughBlock = _next1;
    } else {
@@ -254,7 +262,7 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
          return false;
 
       if (trace())
-         traceMsg(comp(), "Found an ificmpne of an instance of against zero which throws on the fallthrough path\n");
+         traceMsg(comp(), "   Found an ificmpne of an instance of against zero which throws on the fallthrough path\n");
       throwBlock = _next1;
       fallthroughBlock = _next2;
    }
@@ -263,10 +271,6 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
       return false;
 
    _cfg->invalidateStructure();
-
-   traceMsg(comp(), "compareNode n%dn\n", compareNode->getGlobalIndex());
-   traceMsg(comp(), "instanceof n%dn\n", compareNode->getFirstChild()->getGlobalIndex());
-   traceMsg(comp(), "child0 n%dn child1 n%dn\n", compareNode->getFirstChild()->getFirstChild()->getGlobalIndex(), compareNode->getFirstChild()->getSecondChild()->getGlobalIndex());
 
    TR::Node *objNode = compareNode->getFirstChild()->getFirstChild();
    TR::Node *classNode = compareNode->getFirstChild()->getSecondChild();
@@ -287,10 +291,15 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
    checkcastAndNULLCHKNode->setAndIncChild(0, objNode);
    checkcastAndNULLCHKNode->setAndIncChild(1, classNode);
 
-   traceMsg(comp(), "remove compareTreeTop n%dn\n", compareTreeTop->getNode()->getGlobalIndex()); 
+   if (trace())
+      traceMsg(comp(), "Remove compareTreeTop n%dn\n", compareTreeTop->getNode()->getGlobalIndex()); 
    TR::TransformUtil::removeTree(comp(), compareTreeTop);
 
    TR::TreeTop *checkcastAndNULLCHKTree = TR::TreeTop::create(comp(), checkcastAndNULLCHKNode);
+
+   if (trace())
+      traceMsg(comp(), "Create checkcastAndNULLCHK Node n%dn\n", checkcastAndNULLCHKNode->getGlobalIndex()); 
+
    _block->append(checkcastAndNULLCHKTree);
 
    if (hasExceptionPoint(_block, checkcastAndNULLCHKTree))
@@ -307,9 +316,11 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
       _block->append(TR::TreeTop::create(comp(), gotoNode));
    }
 
+   if (trace())
+      traceMsg(comp(), "End simplifyInstanceOfTestToCheckcast.\n");
+
    TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "cfgSimpCheckcast/(%s)", comp()->signature()));
    
-
    return true;
    }
 
@@ -362,6 +373,9 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
    if (disableSimplifyCondStoreSequence != NULL)
       return false;
 
+   if (trace())
+      traceMsg(comp(), "Start simplifyCondStoreSequence block_%d\n", _block->getNumber());
+
    TR::TreeTop *compareTree = _block->getLastRealTreeTop();
    TR::Node *compareNode = compareTree->getNode();
 
@@ -371,6 +385,11 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
    bool triangle1 = _next1->getSuccessors().size () == 1
        && _next1->getExceptionSuccessors().size() == 0
        && toBlock(_next1->getSuccessors().front()->getTo()) == _next2;
+
+   if (trace())
+      {
+      traceMsg(comp(), "   block%d triangle1: %d triangle2: %d\n", _block->getNumber(), triangle1, triangle2);
+      }
 
    if (!triangle1 || triangle2) { return false; }
 
@@ -384,19 +403,21 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
       if (!treeCursor->getNode()->getDataType().isIntegral()
           && !treeCursor->getNode()->getDataType().isAddress())
          return false;
+      if (trace())
+         traceMsg(comp(), "   Store node n%dn data type checks out\n", treeCursor->getNode()->getGlobalIndex());
       if (!treeCursor->getNode()->getSymbolReference()->getSymbol()->isAutoOrParm())
          return false;
+      if (trace())
+         traceMsg(comp(), "   Store node n%dn symRef checks out\n", treeCursor->getNode()->getGlobalIndex());
       treeCursor = treeCursor->getNextTreeTop();
       count++;
       }
-   
+
    if (treeCursor->getNode()->getOpCodeValue() != TR::BBEnd || count < 2)
       return false;
 
    if (!performTransformation(comp(), "%sReplace conditional stores in block_%d with stores of appropriate ternary at nodes\n", OPT_DETAILS, toCheck->getNumber()))
       return false;
-
-   traceMsg(comp(), "%s\n", (triangle1 ? "triangle1" : "triangle2"));
 
    _cfg->invalidateStructure();
 
@@ -413,6 +434,9 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
       TR::Node *falseValue = triangle1 ? (needToDuplicateTree ? storeNode->getFirstChild()->duplicateTree() : storeNode->getFirstChild()) : TR::Node::createWithSymRef(comp()->il.opCodeForDirectLoad(storeNode->getDataType()), 0, storeNode->getSymbolReference());
 
       TR::Node *select = TR::Node::create(storeNode, comp()->il.opCodeForTernarySelect(storeNode->getDataType()), 3);
+      if (trace())
+         traceMsg(comp(), "Created ternary node n%dn\n", select->getGlobalIndex());
+
       select->setAndIncChild(0, condition);
       select->setAndIncChild(1, trueValue);
       select->setAndIncChild(2, falseValue);
@@ -443,7 +467,8 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
          }
    }
    TR::TransformUtil::removeTree(comp(), compareTree);
-   
+   if (trace())
+      traceMsg(comp(), "End simplifyCondStoreSequence.\n");   
    TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "cfgSimpMovSeq/%d/(%s)", count, comp()->signature()));
    return true;
    }
@@ -455,7 +480,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "Starting simplifySimpleStore block_%d\n", _block->getNumber());
+      traceMsg(comp(), "Start simplifySimpleStore block_%d\n", _block->getNumber());
 
    TR::TreeTop *compareTree = _block->getLastRealTreeTop();
    TR::Node *compareNode = compareTree->getNode();
@@ -472,6 +497,11 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
        && _next1->getExceptionSuccessors().size() == 0
        && toBlock(_next1->getSuccessors().front()->getTo()) == toBlock(_next2->getSuccessors().front()->getTo());
 
+   if (trace())
+      {
+      traceMsg(comp(), "   block%d triangle1: %d triangle2: %d diamond: %d\n", _block->getNumber(), triangle1, triangle2, diamond);
+      }
+
    static char *disableSimplifySimpleStoreTriangle = feGetEnv("TR_disableSimplifySimpleStoreTriangle");
    if ((triangle1 || triangle2) && disableSimplifySimpleStoreTriangle != NULL)
       return false;
@@ -480,17 +510,11 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    if ((diamond) && disableSimplifySimpleStoreDiamond != NULL)
       return false;
 
-   if (trace())
-      traceMsg(comp(), "_block %d _next1 %d _next2 %d\n", _block->getNumber(), _next1->getNumber(), _next2->getNumber());
-
-   if (trace())
-      traceMsg(comp(), "block_%d triangle1: %d triangle2: %d diamond: %d\n", _block->getNumber(), triangle1, triangle2, diamond);
-
    if (!triangle1 && !triangle2 && !diamond)
       return false;
 
    if (trace())
-      traceMsg(comp(), "compareTree has correctType\n");
+      traceMsg(comp(), "   compareTree has correctType\n");
  
    TR::TreeTop *treeCursor = NULL;
    TR::Node *trueValue = NULL, *falseValue = NULL, *storeNode = NULL;
@@ -505,7 +529,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
          return false;
 
       if (trace())
-         traceMsg(comp(), "Take side has an appropriate store as the first tree\n");
+         traceMsg(comp(), "   Take side has an appropriate store as the first tree\n");
 
       storeNode = treeCursor->getNode();
       isHeapificationStore = storeNode->getOpCodeValue() == TR::astore && storeNode->isHeapificationStore();
@@ -517,7 +541,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
       trueValue = treeCursor->getNode()->getFirstChild();
 
       if (trace())
-         traceMsg(comp(), "Taken side checks out\n");
+         traceMsg(comp(), "   Taken side checks out\n");
       }
 
    if (triangle1 || diamond)
@@ -528,7 +552,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
           || containsIndirectOperation(comp(), treeCursor))
          return false;
       if (trace())
-         traceMsg(comp(), "Fallthrough side has an appropriate store as the first tree\n");
+         traceMsg(comp(), "   Fallthrough side has an appropriate store as the first tree\n");
 
       if (storeNode != NULL 
           && treeCursor->getNode()->getSymbolReference()->getReferenceNumber() != storeNode->getSymbolReference()->getReferenceNumber())
@@ -538,7 +562,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
       isHeapificationStore = storeNode->getOpCodeValue() == TR::astore && ((diamond && isHeapificationStore && storeNode->isHeapificationStore()) || (!diamond && storeNode->isHeapificationStore()));
 
       if (trace())
-         traceMsg(comp(), "Fallthrough side is storing to the same symeref\n");
+         traceMsg(comp(), "   Fallthrough side is storing to the same symeref\n");
 
       traceMsg(comp(), "Next tree n%dn\n", treeCursor->getNextTreeTop()->getNode()->getGlobalIndex());
       if (treeCursor->getNextTreeTop()->getNode()->getOpCodeValue() != TR::BBEnd
@@ -548,16 +572,22 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
       falseValue = treeCursor->getNode()->getFirstChild();
       
       if (trace())
-         traceMsg(comp(), "Fallthrough checks out\n");
+         traceMsg(comp(), "   Fallthrough checks out\n");
       }
 
    if (!storeNode->getDataType().isIntegral()
        && !storeNode->getDataType().isAddress())
       return false;
 
+   if (trace())
+      traceMsg(comp(), "   StoreNode data type checks out\n");
+
    if (!diamond && !storeNode->getSymbolReference()->getSymbol()->isAutoOrParm())
       return false;
-  
+
+   if (trace())
+      traceMsg(comp(), "   StoreNode symRef checks out\n");
+
    if (!performTransformation(comp(), "%sReplace conditional store with store of an appropriate ternary at node [%p]\n", OPT_DETAILS, compareNode))
       return false;
 
@@ -576,7 +606,10 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    compareTree->insertBefore(cmov);
    if (isHeapificationStore)
       cmov->getNode()->setHeapificationStore(true);
-   
+
+   if (trace())
+      traceMsg(comp(), "End simplifySimpleStore. New ternary node is n%dn\n", select->getGlobalIndex());   
+
    TR::Block *dest;
    if (diamond) {
       dest = toBlock(_next1->getSuccessors().front()->getTo());
@@ -603,34 +636,18 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    return true;
    }
 
-bool TR_CFGSimplifier::simplifyArraylenCompareToException(bool needToDuplicateTree)
-   {
-   TR::TreeTop *compareTreeTop = getLastRealTreetop(_block);
-   TR::Node *compareNode       = compareTreeTop->getNode();
-   if (compareNode->getOpCodeValue() != TR::ificmple
-       && compareNode->getOpCodeValue() != TR::ificmpgt)
-      return false;
-
-   if (compareNode->getFirstChild()->getOpCodeValue() != TR::arraylength
-       && compareNode->getSecondChild()->getOpCodeValue() != TR::arraylength)
-      return false;
-
-   TR::Node *lastNodeNext1 = _next1->getLastRealTreeTop()->getNode();
-   TR::Node *lastNodeNext2 = _next2->getLastRealTreeTop()->getNode();
-   if (!(lastNodeNext1->getNumChildren() == 1 && lastNodeNext1->getFirstChild()->getOpCodeValue() == TR::athrow)
-       && !(lastNodeNext2->getNumChildren() == 1 && lastNodeNext2->getFirstChild()->getOpCodeValue() == TR::athrow))
-      return false;
-
-   TR::DebugCounter::incStaticDebugCounter(comp(), TR::DebugCounter::debugCounterName(comp(), "cfgSimpBNDCHK/(%s)", comp()->signature()));
-   return false;
-   }
-
 bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
    {
    static char *disableSimplifyExplicitNULLTest = feGetEnv("TR_disableSimplifyExplicitNULLTest");
    static char *disableSimplifyNullToException = feGetEnv("TR_disableSimplifyNullToException");
    if (disableSimplifyExplicitNULLTest != NULL || disableSimplifyNullToException != NULL)
       return false;
+
+   if (comp()->getOSRMode() == TR::involuntaryOSR)
+      return false;
+
+   if (trace())
+      traceMsg(comp(), "Start simplifyNullToException\n");
 
    // This block must end in an ifacmpeq or ifacmpne against aconst NULL
    TR::TreeTop *compareTreeTop = getLastRealTreetop(_block);
@@ -640,7 +657,7 @@ bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
 
    if (compareNode->getSecondChild()->getOpCodeValue() != TR::aconst
        || compareNode->getSecondChild()->getAddress() != 0)
@@ -650,7 +667,7 @@ bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
    TR::Block *nullBlock = compareNode->getOpCodeValue() == TR::ifacmpeq ? _next2 : _next1;
 
    if (trace())
-      traceMsg(comp(), "nullBlock %d\n", nullBlock->getNumber());
+      traceMsg(comp(), "   Matched nullBlock %d\n", nullBlock->getNumber());
 
    // we want code sequence ending in a throw (any throw will do)
    TR::Node *lastRootNode = nullBlock->getLastRealTreeTop()->getNode();
@@ -677,7 +694,7 @@ bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
 
    TR::Node *nullchkNode = TR::Node::createWithSymRef(TR::NULLCHK, 1, 1, TR::Node::create(compareNode, TR::PassThrough, 1, compareNode->getFirstChild()), comp()->getSymRefTab()->findOrCreateNullCheckSymbolRef(comp()->getMethodSymbol()));
    if (trace())
-      traceMsg(comp(), "New NULLCHK node is n%dn\n", nullchkNode->getGlobalIndex());
+      traceMsg(comp(), "End simplifyNullToException. New NULLCHK node is n%dn\n", nullchkNode->getGlobalIndex());
    compareTreeTop->insertBefore(TR::TreeTop::create(comp(), nullchkNode));
 
    TR::Block *catchBlock = TR::Block::createEmptyBlock(compareNode, comp(), nullBlock->getFrequency());
@@ -731,6 +748,12 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
    if (disableSimplifyExplicitNULLTest != NULL || disableSimplifyUnresolvedRequireNonNull != NULL)
       return false;
 
+   if (comp()->getOSRMode() == TR::involuntaryOSR)
+         return false;
+
+   if (trace())
+      traceMsg(comp(), "Start simplifyUnresolvedRequireNonNull\n");
+
    // This block must end in an ifacmpeq or ifacmpne against aconst NULLa
    TR::TreeTop *compareTreeTop = getLastRealTreetop(_block);
    TR::Node *compareNode       = compareTreeTop->getNode();
@@ -739,7 +762,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
   
    if (compareNode->getSecondChild()->getOpCodeValue() != TR::aconst
        || compareNode->getSecondChild()->getAddress() != 0)
@@ -750,7 +773,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
    TR::Block *nonnullBlock = compareNode->getOpCodeValue() == TR::ifacmpeq ? _next1 : _next2;
 
    if (trace())
-      traceMsg(comp(), "nullBlock %d\n", nullBlock->getNumber());
+      traceMsg(comp(), "  Matched nullBlock %d\n", nullBlock->getNumber());
 
    TR::TreeTop *nullBlockCursor = nullBlock->getEntry()->getNextTreeTop(); 
 
@@ -759,7 +782,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
       return false;
 
    if (trace())
-      traceMsg(comp(), "Match ResolveCHK of loadaddr\n");
+      traceMsg(comp(), "   Match ResolveCHK of loadaddr\n");
 
    TR::Node *loadaddr = nullBlockCursor->getNode()->getFirstChild();
    nullBlockCursor = nullBlockCursor->getNextTreeTop();
@@ -772,7 +795,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
    TR::Node *exceptionNode = nullBlockCursor->getNode()->getFirstChild();
 
    if (trace())
-      traceMsg(comp(), "Matched new of loadaddr\n");
+      traceMsg(comp(), "   Matched new of loadaddr\n");
 
    nullBlockCursor = nullBlockCursor->getNextTreeTop();
 
@@ -786,14 +809,18 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
        || nullBlockCursor->getNode()->getFirstChild()->getOpCodeValue() != TR::call
        || nullBlockCursor->getNode()->getFirstChild()->getFirstChild() != exceptionNode)
       return false;
-  
+
    TR::Node *initCall = nullBlockCursor->getNode()->getFirstChild(); 
+
+   if (trace())
+      traceMsg(comp(), "   Matched call node %d\n", initCall->getGlobalIndex());
+
    if (!initCall->getSymbolReference()->isUnresolved())
       return false;
 
    TR_Method *calleeMethod = initCall->getSymbol()->castToMethodSymbol()->getMethod();
    if (trace())
-      traceMsg(comp(), "calleeMethod %s %s %s\n", calleeMethod->classNameChars(), calleeMethod->nameChars(), calleeMethod->signatureChars());
+      traceMsg(comp(), "   Matched calleeMethod %s %s %s\n", calleeMethod->classNameChars(), calleeMethod->nameChars(), calleeMethod->signatureChars());
    if (strncmp(calleeMethod->nameChars(), "<init>", 6) != 0
        || strncmp(calleeMethod->classNameChars(), "java/lang/NullPointerException", 30) != 0
        || strncmp(calleeMethod->signatureChars(), "()V", 3) != 0)
@@ -801,7 +828,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
 
 
    if (trace())
-      traceMsg(comp(), "matched NPE init\n");
+      traceMsg(comp(), "   Matched NPE init\n");
 
    nullBlockCursor = nullBlockCursor->getNextTreeTop();
    if ((nullBlockCursor->getNode()->getOpCodeValue() != TR::NULLCHK
@@ -811,7 +838,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched throw\n");
+      traceMsg(comp(), "   Matched throw\n");
 
    TR::Node *throwNode = nullBlockCursor->getNode()->getFirstChild();
 
@@ -843,7 +870,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
    TR::SymbolReference *symRef = comp()->getSymRefTab()->findOrCreateNullCheckSymbolRef(comp()->getMethodSymbol());
    TR::Node *nullchkNode = TR::Node::createWithSymRef(TR::NULLCHK, 1, 1, passthroughNode, symRef);
    if (trace())
-      traceMsg(comp(), "Generated NULLCHK node n%dn\n", nullchkNode->getGlobalIndex());
+      traceMsg(comp(), "End simplifyUnresolvedRequireNonNull. Generated NULLCHK node n%dn\n", nullchkNode->getGlobalIndex());
    TR::TreeTop *nullchkTree = TR::TreeTop::create(comp(), nullchkNode);
    checkBlock->getEntry()->insertAfter(nullchkTree);
 
@@ -892,6 +919,12 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
    if (disableSimplifyExplicitNULLTest != NULL || disableSimplifyResolvedRequireNonNull != NULL)
       return false;
 
+   if (comp()->getOSRMode() == TR::involuntaryOSR)
+         return false;
+
+   if (trace())
+      traceMsg(comp(), "Start simplifyResolvedRequireNonNull\n");
+
    // This block must end in an ifacmpeq or ifacmpne against aconst NULL
    TR::TreeTop *compareTreeTop = getLastRealTreetop(_block);
    TR::Node *compareNode       = compareTreeTop->getNode();
@@ -900,7 +933,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
+      traceMsg(comp(), "   Found an ifacmp[eq/ne] n%dn\n", compareNode->getGlobalIndex());
 
    if (compareNode->getSecondChild()->getOpCodeValue() != TR::aconst
        || compareNode->getSecondChild()->getAddress() != 0)
@@ -910,7 +943,8 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
    TR::Block *nullBlock = compareNode->getOpCodeValue() == TR::ifacmpeq ? _next2 : _next1;
    TR::Block *nonnullBlock = compareNode->getOpCodeValue() == TR::ifacmpeq ? _next1 : _next2;
 
-   traceMsg(comp(), "nullBlock %d\n", nullBlock->getNumber());
+   traceMsg(comp(), "   Found nullBlock %d\n", nullBlock->getNumber());
+
    TR::TreeTop *nullBlockCursor = nullBlock->getEntry()->getNextTreeTop();
    if (nullBlockCursor->getNode()->getOpCodeValue() != TR::treetop
        || nullBlockCursor->getNode()->getFirstChild()->getOpCodeValue() != TR::New
@@ -918,7 +952,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched new tree\n");
+      traceMsg(comp(), "   Matched new tree\n");
 
    TR::Node *exceptionNode = nullBlockCursor->getNode()->getFirstChild();
    TR::Node *loadaddr = nullBlockCursor->getNode()->getFirstChild()->getFirstChild();
@@ -929,7 +963,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched new tree class\n");
+      traceMsg(comp(), "   Matched new tree class\n");
 
    nullBlockCursor = nullBlockCursor->getNextTreeTop();
 
@@ -946,7 +980,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched exceptionNode\n");
+      traceMsg(comp(), "   Matched exceptionNode\n");
 
    TR::Node *initCall = nullBlockCursor->getNode()->getFirstChild();
    if (initCall->getSymbolReference()->isUnresolved())
@@ -954,14 +988,14 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
 
    TR_ResolvedMethod *calleeMethod = initCall->getSymbol()->castToResolvedMethodSymbol()->getResolvedMethod();
    if (trace())
-      traceMsg(comp(), "calleeMethod %s %s %s\n", calleeMethod->classNameChars(), calleeMethod->nameChars(), calleeMethod->signatureChars());
+      traceMsg(comp(), "   Matched calleeMethod %s %s %s\n", calleeMethod->classNameChars(), calleeMethod->nameChars(), calleeMethod->signatureChars());
    if (strncmp(calleeMethod->nameChars(), "<init>", 6) != 0
        || strncmp(calleeMethod->classNameChars(), "java/lang/Throwable", 19) != 0
        || strncmp(calleeMethod->signatureChars(), "()V", 3) != 0)
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched exceptionNode call\n");
+      traceMsg(comp(), "   Matched exceptionNode call\n");
    
    nullBlockCursor = nullBlockCursor->getNextTreeTop();
    if ((nullBlockCursor->getNode()->getOpCodeValue() != TR::treetop
@@ -971,7 +1005,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
       return false;
 
    if (trace())
-      traceMsg(comp(), "matched exception throw\n");
+      traceMsg(comp(), "   Matched exception throw\n");
 
    TR::Node *throwNode = nullBlockCursor->getNode()->getFirstChild();
 
@@ -1003,7 +1037,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
    TR::SymbolReference *symRef = comp()->getSymRefTab()->findOrCreateNullCheckSymbolRef(comp()->getMethodSymbol());
    TR::Node *nullchkNode = TR::Node::createWithSymRef(TR::NULLCHK, 1, 1, passthroughNode, symRef);
    if (trace())
-      traceMsg(comp(), "Generated NULLCHK node n%dn\n", nullchkNode->getGlobalIndex());
+      traceMsg(comp(), "End simplifyResolvedRequireNonNull. Generated NULLCHK node n%dn\n", nullchkNode->getGlobalIndex());
    TR::TreeTop *nullchkTree = TR::TreeTop::create(comp(), nullchkNode);
    checkBlock->getEntry()->insertAfter(nullchkTree);
 
@@ -1042,6 +1076,9 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
 //
 bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree) 
    {
+   if (trace())
+      traceMsg(comp(), "Start simplifyBooleanStore\n");
+
    if (_next1->getSuccessors().empty())
       return false;
    if (_next1->getSuccessors().size() != 1)
@@ -1052,6 +1089,9 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
       return false;
    if (_next1->getSuccessors().front()->getTo() != _next2->getSuccessors().front()->getTo())
       return false;
+
+   if (trace())
+      traceMsg(comp(), "   Control flow checks out\n");
 
    TR::Block *joinBlock = toBlock(_next1->getSuccessors().front()->getTo());
 
@@ -1064,6 +1104,9 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
    if (compareNode->getOpCode().convertIfCmpToCmp() == TR::BadILOp)
       return false;
 
+   if (trace())
+      traceMsg(comp(), "   Found a Compare node n%dn\n", compareNode->getGlobalIndex());
+
    // The trees of each successor block must consist of a single store.
    //
    TR::TreeTop *store1TreeTop = getNextRealTreetop(_next1->getEntry());
@@ -1072,12 +1115,16 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
    TR::Node *store1 = store1TreeTop->getNode();
    if (!store1->getOpCode().isStore())
       return false;
+   if (trace())
+      traceMsg(comp(), "   Successor block_%d is single store\n", _next1->getNumber());
    TR::TreeTop *store2TreeTop = getNextRealTreetop(_next2->getEntry());
    if (store2TreeTop == NULL || getNextRealTreetop(store2TreeTop) != NULL)
       return false;
    TR::Node *store2 = store2TreeTop->getNode();
    if (!store2->getOpCode().isStore())
       return false;
+   if (trace())
+      traceMsg(comp(), "   Successor block_%d is single store\n", _next2->getNumber());
 
    // The stores must be integer stores to the same variable
    //
@@ -1087,6 +1134,8 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
       return false;
    if (store1->getSymbolReference()->getSymbol() != store2->getSymbolReference()->getSymbol())
       return false;
+   if (trace())
+      traceMsg(comp(), "   Store nodes opcode and symref checks out\n");
 
    // Indirect stores must have the same base
    //
@@ -1112,6 +1161,8 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
          return false;
       if (base1->getSymbolReference()->getReferenceNumber() != base2->getSymbolReference()->getReferenceNumber())
          return false;
+      if (trace())
+         traceMsg(comp(), "   Indirect store base node opcode and symref checks out\n");
       }
 
    // The value on one of the stores must be zero. There is a special case if
@@ -1158,6 +1209,9 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
    //   return false;
    else
       return false;
+
+   if (trace())
+      traceMsg(comp(), "   Comparison values check out\n");
 
 #if ALLOW_SIMPLIFY_COND_CODE_BOOLEAN_STORE
    if (isBranchOnCondCode)
@@ -1397,6 +1451,8 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
       _block->append(TR::TreeTop::create(comp(),
                                         TR::Node::create(compareNode, TR::Goto, 0, joinBlock->getEntry())));
       }
+   if (trace())
+      traceMsg(comp(), "End simplifyBooleanStore. New store node is n%dn\n", storeNode->getGlobalIndex());
    return true;
    }
 
