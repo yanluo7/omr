@@ -239,7 +239,8 @@ bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTre
    if (trace())
       traceMsg(comp(), "   Found an ificmp[eq/ne] of an instanceof against 0 n%dn\n", compareNode->getGlobalIndex());
 
-   if (compareNode->getFirstChild()->getSecondChild()->getOpCodeValue() != TR::loadaddr)
+   static char *disableDynamicCheckcast = feGetEnv("TR_disableDynamicCheckcast");
+   if (disableDynamicCheckcast && compareNode->getFirstChild()->getSecondChild()->getOpCodeValue() != TR::loadaddr)
       return false;
 
    if (trace())
