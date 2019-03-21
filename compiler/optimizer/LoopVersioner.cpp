@@ -3445,7 +3445,9 @@ bool TR_LoopVersioner::detectChecksToBeEliminated(TR_RegionStructure *whileLoop,
                }
             else if (currentOpCode.isCheckCast()) // (currentOpCode.getOpCodeValue() == TR::checkcast)
                {
-	       if (currentNode->getSecondChild()->getOpCodeValue() == TR::loadaddr)
+               static char *skipDynamicCheckcast = feGetEnv("TR_skipDynamicCheckcast");
+               static char *printDynamicCheckcast = feGetEnv("TR_printDynamicCheckcast");
+               if (currentNode->getSecondChild()->getOpCodeValue() == TR::loadaddr)
 	          {
                   TR_ASSERT(currentNode->getSecondChild()->getOpCodeValue() == TR::loadaddr, "second child should be LOADADDR");
                   void* clazz = currentNode->getSecondChild()->
@@ -3457,12 +3459,24 @@ bool TR_LoopVersioner::detectChecksToBeEliminated(TR_RegionStructure *whileLoop,
                      if (dupOfThisBlockAlreadyExecutedBeforeLoop)
                         _checksInDupHeader.add(currentTree);
                      }
-                 else
-                    {
-                    if (trace()) //if we move the checkcast before the inlined body instanceof might fail because the class might not exist in the original code
-                        traceMsg(comp(), "Class for Checkcast %p is not loaded by the same classloader as the compiled method\n", currentTree->getNode());
-                    }
-                 }
+                  else
+                     {
+                     if (trace()) //if we move the checkcast before the inlined body instanceof might fail because the class might not exist in the original code
+                         traceMsg(comp(), "Class for Checkcast %p is not loaded by the same classloader as the compiled method\n", currentTree->getNode());
+                     }
+                  }
+               else
+                  {
+                  if (!skipDynamicCheckcast)
+                     {
+                     checkCastTrees->add(currentTree);
+                     if (dupOfThisBlockAlreadyExecutedBeforeLoop)
+                        _checksInDupHeader.add(currentTree);
+                     if (printDynamicCheckcast) printf("YAN DynamicCheckcast %s\n", comp()->signature());
+                     if (trace())
+                        traceMsg(comp(), "YAN dynamic Checkcast %p\n", currentTree->getNode());
+                     }
+                  }
                }
             else if (currentOpCode.getOpCodeValue() == TR::ArrayStoreCHK)
                {
