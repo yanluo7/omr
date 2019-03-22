@@ -911,16 +911,16 @@ int32_t TR::PPCControlFlowInstruction::estimateBinaryLength(int32_t currentEstim
       case TR::InstOpCode::ldiv:
       case TR::InstOpCode::ifx:
       case TR::InstOpCode::iternary:
-         if (useRegPair())
+         if (useRegPairForResult())
             {
-            if (getNumSources() == 5)
+            if (!useRegPairForCond())
                setEstimatedBinaryLength(PPC_INSTRUCTION_LENGTH * 6);
             else
                setEstimatedBinaryLength(PPC_INSTRUCTION_LENGTH * 8);
             }
          else
             {
-            if (getNumSources() == 3)
+            if (!useRegPairForCond())
                setEstimatedBinaryLength(PPC_INSTRUCTION_LENGTH * 4);
             else
                setEstimatedBinaryLength(PPC_INSTRUCTION_LENGTH * 6);

@@ -1571,7 +1571,7 @@ void TR::PPCControlFlowInstruction::assignRegisters(TR_RegisterKinds kindToBeAss
          {
          cg()->traceRAInstruction(cursor = generateTrg1Src1ImmInstruction(cg(), TR::InstOpCode::cmpi4, currentNode, getTargetRegister(0), getSourceRegister(0), 0, cursor));
 
-         if (useRegPair())
+         if (useRegPairForResult())
             {
             cg()->traceRAInstruction(cursor = generateTrg1Src1Instruction   (cg(), getOpCode2Value(), currentNode, getTargetRegister(1), getSourceRegister(1), cursor));
             cg()->traceRAInstruction(cursor = generateTrg1Src1Instruction   (cg(), getOpCode2Value(), currentNode, getTargetRegister(2), getSourceRegister(2), cursor));
@@ -1582,9 +1582,9 @@ void TR::PPCControlFlowInstruction::assignRegisters(TR_RegisterKinds kindToBeAss
             }
          cg()->traceRAInstruction(cursor = generateConditionalBranchInstruction(cg(), TR::InstOpCode::bne, currentNode, label2, getTargetRegister(0), cursor));
 
-         if (useRegPair())
+         if (useRegPairForResult())
             {
-            if (getNumSources() == 6)
+            if (useRegPairForCond())
                {
                cg()->traceRAInstruction(cursor = generateTrg1Src1ImmInstruction(cg(), TR::InstOpCode::cmpi4, currentNode, getTargetRegister(0), getSourceRegister(5), 0, cursor));
                cg()->traceRAInstruction(cursor = generateConditionalBranchInstruction(cg(), TR::InstOpCode::bne, currentNode, label2, getTargetRegister(0), cursor));
@@ -1592,14 +1592,14 @@ void TR::PPCControlFlowInstruction::assignRegisters(TR_RegisterKinds kindToBeAss
             }
          else
             {
-            if (getNumSources() == 4)
+            if (useRegPairForCond())
                {
                cg()->traceRAInstruction(cursor = generateTrg1Src1ImmInstruction(cg(), TR::InstOpCode::cmpi4, currentNode, getTargetRegister(0), getSourceRegister(3), 0, cursor));
                cg()->traceRAInstruction(cursor = generateConditionalBranchInstruction(cg(), TR::InstOpCode::bne, currentNode, label2, getTargetRegister(0), cursor));
                }
             }
 
-         if (useRegPair())
+         if (useRegPairForResult())
             {
             cg()->traceRAInstruction(cursor = generateTrg1Src1Instruction   (cg(), getOpCode2Value(), currentNode, getTargetRegister(1), getSourceRegister(3), cursor));
             cg()->traceRAInstruction(cursor = generateTrg1Src1Instruction   (cg(), getOpCode2Value(), currentNode, getTargetRegister(2), getSourceRegister(4), cursor));

@@ -1257,8 +1257,9 @@ TR::Register *OMR::Power::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::C
       TR::Register *  condReg = cg->evaluate(node->getChild(0));
 
       TR::Register *ccr       = cg->allocateRegister(TR_CCR);
+      bool useRegPairForCond = (condReg->getRegisterPair() != NULL);
       TR::PPCControlFlowInstruction *i = (TR::PPCControlFlowInstruction*)
-            generateControlFlowInstruction(cg, TR::InstOpCode::iternary, node, NULL, 0, two_reg);
+            generateControlFlowInstruction(cg, TR::InstOpCode::iternary, node, NULL, 0, two_reg, useRegPairForCond);
       i->addTargetRegister(ccr);
       if (two_reg)
          {
@@ -1267,7 +1268,7 @@ TR::Register *OMR::Power::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::C
          }
       else
          i->addTargetRegister(resultReg);
-      i->addSourceRegister(condReg->getRegisterPair() ? condReg->getLowOrder() : condReg);
+      i->addSourceRegister(useRegPairForCond ? condReg->getLowOrder() : condReg);
       if (two_reg)
          {
          i->addSourceRegister(trueReg->getHighOrder()); 
@@ -1281,7 +1282,7 @@ TR::Register *OMR::Power::TreeEvaluator::iternaryEvaluator(TR::Node *node, TR::C
          i->addSourceRegister(falseReg); 
          }
 
-      if (condReg->getRegisterPair())
+      if (useRegPairForCond)
          i->addSourceRegister(condReg->getHighOrder());
 
       i->setOpCode2Value(move_opcode);
