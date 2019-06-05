@@ -26,7 +26,7 @@ compiler_library(optimizer
 	${CMAKE_CURRENT_LIST_DIR}/BackwardUnionBitVectorAnalysis.cpp
 	${CMAKE_CURRENT_LIST_DIR}/BitVectorAnalysis.cpp
 	${CMAKE_CURRENT_LIST_DIR}/CatchBlockRemover.cpp
-	${CMAKE_CURRENT_LIST_DIR}/CFGSimplifier.cpp
+	${CMAKE_CURRENT_LIST_DIR}/OMRCFGSimplifier.cpp
 	${CMAKE_CURRENT_LIST_DIR}/CompactLocals.cpp
 	${CMAKE_CURRENT_LIST_DIR}/CopyPropagation.cpp
 	${CMAKE_CURRENT_LIST_DIR}/DataFlowAnalysis.cpp

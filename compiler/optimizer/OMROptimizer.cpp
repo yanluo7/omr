@@ -761,7 +761,7 @@ OMR::Optimizer::Optimizer(TR::Compilation *comp, TR::ResolvedMethodSymbol *metho
    _opts[OMR::catchBlockRemoval] =
       new (comp->allocator()) TR::OptimizationManager(self(), TR_CatchBlockRemover::create, OMR::catchBlockRemoval);
    _opts[OMR::CFGSimplification] =
-      new (comp->allocator()) TR::OptimizationManager(self(), TR_CFGSimplifier::create, OMR::CFGSimplification);
+      new (comp->allocator()) TR::OptimizationManager(self(), TR::CFGSimplifier::create, OMR::CFGSimplification);
    _opts[OMR::checkcastAndProfiledGuardCoalescer] =
       new (comp->allocator()) TR::OptimizationManager(self(), TR_CheckcastAndProfiledGuardCoalescer::create, OMR::checkcastAndProfiledGuardCoalescer);
    _opts[OMR::coldBlockMarker] =

@@ -54,12 +54,12 @@
 
 #define OPT_DETAILS "O^O CFG SIMPLIFICATION: "
 
-TR_CFGSimplifier::TR_CFGSimplifier(TR::OptimizationManager *manager)
+OMR::CFGSimplifier::CFGSimplifier(TR::OptimizationManager *manager)
    : TR::Optimization(manager)
    {}
 
 
-int32_t TR_CFGSimplifier::perform()
+int32_t OMR::CFGSimplifier::perform()
    {
    if (trace())
       traceMsg(comp(), "Starting CFG Simplification\n");
@@ -99,7 +99,7 @@ int32_t TR_CFGSimplifier::perform()
    return 1; // actual cost
    }
 
-bool TR_CFGSimplifier::simplify()
+bool OMR::CFGSimplifier::simplify()
    {
    // Can't simplify the entry or exit blocks
    //
@@ -128,7 +128,7 @@ bool TR_CFGSimplifier::simplify()
    return simplifyIfStructure();
    }
 
-bool TR_CFGSimplifier::simplifyIfStructure()
+bool OMR::CFGSimplifier::simplifyIfStructure()
    {
    if (trace())
       traceMsg(comp(), "Attempting if simpliciaton on block_%d\n", _block->getNumber());
@@ -201,7 +201,7 @@ bool hasExceptionPoint(TR::Block *block, TR::TreeTop *end)
    return false;
    }
 
-bool TR_CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifyInstanceOfTestToCheckcast(bool needToDuplicateTree)
    {
    static char *disableSimplifyInstanceOfTestToCheckcast = feGetEnv("TR_disableSimplifyInstanceOfTestToCheckcast");
    if (disableSimplifyInstanceOfTestToCheckcast != NULL)
@@ -367,7 +367,7 @@ static bool containsIndirectOperation(TR::Compilation *comp, TR::TreeTop *treeto
    return containsIndirectOperationImpl(treetop->getNode()->getFirstChild(), &visited, 3);
    }
 
-bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
    {
    static char *disableSimplifyCondStoreSequence = feGetEnv("TR_disableSimplifyCondStoreSequence");
    if (disableSimplifyCondStoreSequence != NULL)
@@ -473,7 +473,7 @@ bool TR_CFGSimplifier::simplifyCondStoreSequence(bool needToDuplicateTree)
    return true;
    }
 
-bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    {
    static char *disableSimplifySimpleStore = feGetEnv("TR_disableSimplifySimpleStore");
    if (disableSimplifySimpleStore != NULL)
@@ -636,7 +636,7 @@ bool TR_CFGSimplifier::simplifySimpleStore(bool needToDuplicateTree)
    return true;
    }
 
-bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
    {
    static char *disableSimplifyExplicitNULLTest = feGetEnv("TR_disableSimplifyExplicitNULLTest");
    static char *disableSimplifyNullToException = feGetEnv("TR_disableSimplifyNullToException");
@@ -741,7 +741,7 @@ bool TR_CFGSimplifier::simplifyNullToException(bool needToDuplicateTree)
 //    athrow
 //       => new
 
-bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree)
    {
    static char *disableSimplifyExplicitNULLTest = feGetEnv("TR_disableSimplifyExplicitNULLTest");
    static char *disableSimplifyUnresolvedRequireNonNull = feGetEnv("TR_disableSimplifyUnresolvedRequireNonNull");
@@ -912,7 +912,7 @@ bool TR_CFGSimplifier::simplifyUnresolvedRequireNonNull(bool needToDuplicateTree
 //
 // Replace the branch with a NULLCHK PassThrough of some ref
 //
-bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
+bool OMR::CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
    {
    static char *disableSimplifyExplicitNULLTest = feGetEnv("TR_disableSimplifyExplicitNULLTest");
    static char *disableSimplifyResolvedRequireNonNull = feGetEnv("TR_disableSimplifyResolvedRequireNonNull");
@@ -1074,7 +1074,7 @@ bool TR_CFGSimplifier::simplifyResolvedRequireNonNull(bool needToDuplicateTree)
 //
 // Return "true" if any transformations were made.
 //
-bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree) 
+bool OMR::CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree) 
    {
    if (trace())
       traceMsg(comp(), "Start simplifyBooleanStore\n");
@@ -1456,7 +1456,7 @@ bool TR_CFGSimplifier::simplifyBooleanStore(bool needToDuplicateTree)
    return true;
    }
 
-TR::TreeTop *TR_CFGSimplifier::getNextRealTreetop(TR::TreeTop *treeTop)
+TR::TreeTop *OMR::CFGSimplifier::getNextRealTreetop(TR::TreeTop *treeTop)
    {
    treeTop = treeTop->getNextRealTreeTop();
    while (treeTop != NULL)
@@ -1472,7 +1472,7 @@ TR::TreeTop *TR_CFGSimplifier::getNextRealTreetop(TR::TreeTop *treeTop)
    return treeTop;
    }
 
-TR::TreeTop *TR_CFGSimplifier::getLastRealTreetop(TR::Block *block)
+TR::TreeTop *OMR::CFGSimplifier::getLastRealTreetop(TR::Block *block)
    {
    TR::TreeTop *treeTop = block->getLastRealTreeTop();
    if (treeTop->getNode()->getOpCodeValue() == TR::BBStart)
@@ -1480,7 +1480,7 @@ TR::TreeTop *TR_CFGSimplifier::getLastRealTreetop(TR::Block *block)
    return treeTop;
    }
 
-TR::Block *TR_CFGSimplifier::getFallThroughBlock(TR::Block *block)
+TR::Block *OMR::CFGSimplifier::getFallThroughBlock(TR::Block *block)
    {
    TR::TreeTop *treeTop = block->getExit()->getNextTreeTop();
    if (treeTop == NULL)
@@ -1496,7 +1496,7 @@ TR::Block *TR_CFGSimplifier::getFallThroughBlock(TR::Block *block)
    2) One of the things being compared must be the same variable that was stored to previously
     (eg. we conditionally store 0 or another value to x; we need to be comparing x to something here)
  */
-bool TR_CFGSimplifier::simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::Node *branchNode, TR::Node *store1Node, TR::Node *store2Node)
+bool OMR::CFGSimplifier::simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::Node *branchNode, TR::Node *store1Node, TR::Node *store2Node)
    {
    // The first node in the final block must be a compare-and-branch
    TR::TreeTop *compareTreeTop = getNextRealTreetop(joinBlock->getEntry());
@@ -1752,13 +1752,13 @@ bool TR_CFGSimplifier::simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::No
    }
 
 // Returns true if it's safe to reverse the branch mask
-bool TR_CFGSimplifier::canReverseBranchMask()
+bool OMR::CFGSimplifier::canReverseBranchMask()
    {
    return false;
    }
 
 const char *
-TR_CFGSimplifier::optDetailString() const throw()
+OMR::CFGSimplifier::optDetailString() const throw()
    {
    return "O^O CFG SIMPLIFICATION: ";
    }
