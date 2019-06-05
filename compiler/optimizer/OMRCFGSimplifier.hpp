@@ -51,23 +51,19 @@ class CFGSimplifier : public TR::Optimization
 
    virtual int32_t perform();
    virtual const char * optDetailString() const throw();
+   
+   protected:
 
-   private :
-
-   bool simplify();
-   bool simplifyIfStructure();
+   virtual bool simplifyIfPatterns(bool needToDuplicateTree);
    bool simplifyBooleanStore(bool needToDuplicateTree);
-   bool simplifyResolvedRequireNonNull(bool needToDuplicateTree);
-   bool simplifyUnresolvedRequireNonNull(bool needToDuplicateTree);
    bool simplifyNullToException(bool needToDuplicateTree);
-   bool simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::Node *branchNode, TR::Node *store1Node, TR::Node *store2Node);
    bool simplifySimpleStore(bool needToDuplicateTree);
    bool simplifyCondStoreSequence(bool needToDuplicateTree);
    bool simplifyInstanceOfTestToCheckcast(bool needToDuplicateTree);
    TR::TreeTop *getNextRealTreetop(TR::TreeTop *treeTop);
    TR::TreeTop *getLastRealTreetop(TR::Block *block);
    TR::Block   *getFallThroughBlock(TR::Block *block);
-   bool canReverseBranchMask();
+   bool hasExceptionPoint(TR::Block *block, TR::TreeTop *end);
 
    TR::CFG                  *_cfg;
 
@@ -81,6 +77,14 @@ class CFGSimplifier : public TR::Optimization
    // Second successor to the current block
    TR::CFGEdge              *_succ2;
    TR::Block                *_next2;
+
+   private :
+
+   bool simplify();
+   bool simplifyIfStructure();
+   bool simplifyCondCodeBooleanStore(TR::Block *joinBlock, TR::Node *branchNode, TR::Node *store1Node, TR::Node *store2Node);
+   bool canReverseBranchMask();
+
    };
 
 }
